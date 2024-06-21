@@ -26,7 +26,7 @@
 #define GC4023_CHIP_ID_L	(0x23)
 #define GC4023_REG_END		0xffff
 #define GC4023_REG_DELAY	0x0000
-#define GC4023_SUPPORT_386RES_30FPS_SCLK 108*1000*1000
+#define GC4023_SUPPORT_386RES_60FPS_SCLK 108*1000*1000
 
 #define SENSOR_OUTPUT_MIN_FPS 5
 #define SENSOR_VERSION	"H20220510a"
@@ -39,7 +39,7 @@ static int pwdn_gpio = -1;
 module_param(pwdn_gpio, int, S_IRUGO);
 MODULE_PARM_DESC(pwdn_gpio, "Power down GPIO NUM");
 
-static int sensor_max_fps = TX_SENSOR_MAX_FPS_90;
+static int sensor_max_fps = TX_SENSOR_MAX_FPS_60;
 module_param(sensor_max_fps, int, S_IRUGO);
 MODULE_PARM_DESC(sensor_max_fps, "Sensor Max Fps set interface");
 
@@ -239,7 +239,7 @@ struct tx_isp_sensor_attribute gc4023_attr={
 	//	void priv; /* point to struct tx_isp_sensor_board_info */
 };
 
-static struct regval_list gc4023_init_regs_2560_1440_25fps_mipi[] = {
+static struct regval_list gc4023_init_regs_2560_1440_60fps_mipi[] = {
 	/*
 	 * version 0.2 mclk 27Mhz wpclk 216Mhz rpclk 172.2Mhz mipi 864Mbps/lane
 	 * cpclk 27Mhz vts = 1500 window 2560 1440
@@ -365,14 +365,14 @@ static struct regval_list gc4023_init_regs_2560_1440_25fps_mipi[] = {
 };
 
 static struct tx_isp_sensor_win_setting gc4023_win_sizes[] = {
-	/* [0] 2560*1440 @max 30fps*/
+	/* [0] 2560*1440 @max 60fps*/
 	{
 		.width		= 2560,
 		.height		= 1440,
-		.fps		= 30 << 16 | 1,
+		.fps		= 60 << 16 | 1,
 		.mbus_code	= V4L2_MBUS_FMT_SRGGB10_1X10,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
-		.regs 		= gc4023_init_regs_2560_1440_25fps_mipi,
+		.regs 		= gc4023_init_regs_2560_1440_60fps_mipi,
 	}
 
 };
@@ -629,11 +629,11 @@ static int gc4023_set_fps(struct tx_isp_subdev *sd, int fps)
 	unsigned int newformat = 0; //the format is 24.8
 	int ret = 0;
 
-	wpclk = GC4023_SUPPORT_386RES_30FPS_SCLK;
+	wpclk = GC4023_SUPPORT_386RES_60FPS_SCLK;
 
 	max_fps = sensor_max_fps;
 
-	/* the format of fps is 16/16. for example 30 << 16 | 2, the value is 30/2 fps. */
+	/* the format of fps is 16/16. for example 60 << 16 | 2, the value is 60/2 fps. */
 	newformat = (((fps >> 16) / (fps & 0xffff)) << 8) + ((((fps >> 16) % (fps & 0xffff)) << 8) / (fps & 0xffff));
 	if(newformat > (max_fps << 8) || newformat < (SENSOR_OUTPUT_MIN_FPS << 8)){
 		ISP_ERROR("warn: fps(%x) no in range\n", fps);
@@ -934,7 +934,7 @@ static int gc4023_probe(struct i2c_client *client, const struct i2c_device_id *i
 	 */
 
 	wsize = &gc4023_win_sizes[0];
-	sensor_max_fps = TX_SENSOR_MAX_FPS_90;
+	sensor_max_fps = TX_SENSOR_MAX_FPS_60;
 	gc4023_attr.data_type = data_type;
 	memcpy(&gc4023_attr.mipi, &gc4023_mipi_linear, sizeof(gc4023_mipi_linear));
 	gc4023_attr.one_line_expr_in_us = 22;
