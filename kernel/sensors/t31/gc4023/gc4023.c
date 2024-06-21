@@ -39,7 +39,7 @@ static int pwdn_gpio = -1;
 module_param(pwdn_gpio, int, S_IRUGO);
 MODULE_PARM_DESC(pwdn_gpio, "Power down GPIO NUM");
 
-static int sensor_max_fps = TX_SENSOR_MAX_FPS_30;
+static int sensor_max_fps = TX_SENSOR_MAX_FPS_90;
 module_param(sensor_max_fps, int, S_IRUGO);
 MODULE_PARM_DESC(sensor_max_fps, "Sensor Max Fps set interface");
 
@@ -934,7 +934,7 @@ static int gc4023_probe(struct i2c_client *client, const struct i2c_device_id *i
 	 */
 
 	wsize = &gc4023_win_sizes[0];
-	sensor_max_fps = TX_SENSOR_MAX_FPS_30;
+	sensor_max_fps = TX_SENSOR_MAX_FPS_90;
 	gc4023_attr.data_type = data_type;
 	memcpy(&gc4023_attr.mipi, &gc4023_mipi_linear, sizeof(gc4023_mipi_linear));
 	gc4023_attr.one_line_expr_in_us = 22;
