@@ -8,6 +8,7 @@
  * published by the Free Software Foundation.
  */
 #define DEBUG
+#define __WDR__
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -51,6 +52,10 @@ MODULE_PARM_DESC(data_interface, "Sensor Date interface");
 static int data_type = TX_SENSOR_DATA_TYPE_LINEAR;
 module_param(data_type, int, S_IRUGO);
 MODULE_PARM_DESC(data_type, "Sensor Date Type");
+
+static int wdr_bufsize = 10077696 * 2;//cache lines corrponding on VPB1
+module_param(wdr_bufsize, int, S_IRUGO);
+MODULE_PARM_DESC(wdr_bufsize, "Wdr Buf Size");
 
 static int shvflip = 0;
 module_param(shvflip, int, S_IRUGO);
@@ -114,7 +119,15 @@ unsigned int gc4023_alloc_integration_time(unsigned int it, unsigned char shift,
 {
 	unsigned int expo = it >> shift;
 	unsigned int isp_it = it;
-
+#if 0
+	if(data_type == TX_SENSOR_DATA_TYPE_WDR_DOL){
+		if (expo % 2 == 0)
+			expo = expo - 1;
+		if(expo < gc4023_attr.min_integration_time)
+			expo = 3;
+	}
+	isp_it = expo << shift;
+#endif
 	*sensor_it = expo;
 
 	return isp_it;
@@ -218,6 +231,34 @@ struct tx_isp_mipi_bus gc4023_mipi_linear = {
 	.mipi_sc.sensor_fid_mode = 0,
 	.mipi_sc.sensor_mode = TX_SENSOR_DEFAULT_MODE,
 };
+struct tx_isp_mipi_bus gc4023_mipi_dol = {
+	.mode = SENSOR_MIPI_OTHER_MODE,
+	.clk = 864,
+	.lans = 2,
+	.settle_time_apative_en = 1,
+	.mipi_sc.sensor_csi_fmt = TX_SENSOR_RAW10,//RAW10
+	.mipi_sc.hcrop_diff_en = 0,
+	.mipi_sc.mipi_vcomp_en = 0,
+	.mipi_sc.mipi_hcomp_en = 0,
+	.image_twidth = 2560,
+	.image_theight = 1440,
+	.mipi_sc.mipi_crop_start0x = 0,
+	.mipi_sc.mipi_crop_start0y = 0,
+	.mipi_sc.mipi_crop_start1x = 0,
+	.mipi_sc.mipi_crop_start1y = 0,
+	.mipi_sc.mipi_crop_start2x = 0,
+	.mipi_sc.mipi_crop_start2y = 0,
+	.mipi_sc.mipi_crop_start3x = 0,
+	.mipi_sc.mipi_crop_start3y = 0,
+	.mipi_sc.line_sync_mode = 0,
+	.mipi_sc.work_start_flag = 0,
+	.mipi_sc.data_type_en = 0,
+	.mipi_sc.data_type_value = 0,
+	.mipi_sc.del_start = 0,
+	.mipi_sc.sensor_frame_mode = TX_SENSOR_WDR_2_FRAME_MODE,
+	.mipi_sc.sensor_fid_mode = 0,
+	.mipi_sc.sensor_mode = TX_SENSOR_VC_MODE,
+};
 struct tx_isp_sensor_attribute gc4023_attr={
 	.name = "gc4023",
 	.chip_id = 0x4023,
@@ -240,13 +281,139 @@ struct tx_isp_sensor_attribute gc4023_attr={
 	//	void priv; /* point to struct tx_isp_sensor_board_info */
 };
 
+/*
+ * version 0.2
+ * mclk 27Mhz
+ * mipiclk 864Mhz
+ * framelength 1500
+ * linelength 4800
+ * pclk 216Mhz
+ * rowtime 22.2222us
+ * pattern grbg
+ */
 static struct regval_list gc4023_init_regs_2560_1440_25fps_mipi[] = {
-	/*
-	 * version 0.2 mclk 27Mhz wpclk 216Mhz rpclk 172.2Mhz mipi 864Mbps/lane
-	 * cpclk 27Mhz vts = 1500 window 2560 1440
-	 */
 	/*SYSTEM*/
    	{0x03fe, 0xf0},
+   	{0x03fe, 0x00},
+   	{0x03fe, 0x10},
+   	{0x03fe, 0x00},
+   	{0x0a38, 0x00},
+   	{0x0a38, 0x01},
+   	{0x0a20, 0x07},
+   	{0x061c, 0x50},
+   	{0x061d, 0x22},
+   	{0x061e, 0x78},
+   	{0x061f, 0x06},
+   	{0x0a21, 0x10},
+   	{0x0a34, 0x40},
+   	{0x0a35, 0x01},
+   	{0x0a36, 0x60},
+   	{0x0a37, 0x06},
+   	{0x0314, 0x50},
+   	{0x0315, 0x00},
+   	{0x031c, 0xce},
+   	{0x0219, 0x47},
+   	{0x0342, 0x04},
+   	{0x0343, 0xb0},
+   	{0x0259, 0x05},
+   	{0x025a, 0xa0},
+   	{0x0340, 0x05},
+   	{0x0341, 0xdc},
+   	{0x0347, 0x02},
+   	{0x0348, 0x0a},
+   	{0x0349, 0x08},
+   	{0x034a, 0x05},
+   	{0x034b, 0xa8},
+   	{0x0094, 0x0a},
+   	{0x0095, 0x00},
+   	{0x0096, 0x05},
+   	{0x0097, 0xa0},
+   	{0x0099, 0x04},
+   	{0x009b, 0x04},
+   	{0x060c, 0x01},
+   	{0x060e, 0x08},
+   	{0x060f, 0x05},
+   	{0x070c, 0x01},
+   	{0x070e, 0x08},
+   	{0x070f, 0x05},
+   	{0x0909, 0x03},
+   	{0x0902, 0x04},
+   	{0x0904, 0x0b},
+   	{0x0907, 0x54},
+   	{0x0908, 0x06},
+   	{0x0903, 0x9d},
+   	{0x072a, 0x18},
+   	{0x0724, 0x0a},
+   	{0x0727, 0x0a},
+   	{0x072a, 0x18},
+   	{0x072b, 0x08},
+   	{0x1466, 0x10},
+   	{0x1468, 0x0f},
+   	{0x1467, 0x07},
+   	{0x1469, 0x80},
+   	{0x146a, 0xbc},
+   	{0x0707, 0x07},
+   	{0x0737, 0x0f},
+   	{0x061a, 0x00},
+   	{0x1430, 0x80},
+   	{0x1407, 0x10},
+   	{0x1408, 0x16},
+   	{0x1409, 0x03},
+   	{0x146d, 0x0e},
+   	{0x146e, 0x32},
+   	{0x146f, 0x33},
+   	{0x1470, 0x2c},
+   	{0x1471, 0x2d},
+   	{0x1472, 0x3a},
+   	{0x1473, 0x3a},
+   	{0x1474, 0x40},
+   	{0x1475, 0x36},
+   	{0x1420, 0x14},
+   	{0x1464, 0x15},
+   	{0x146c, 0x40},
+   	{0x146d, 0x40},
+   	{0x1423, 0x08},
+   	{0x1428, 0x10},
+   	{0x1462, 0x08},
+   	{0x02ce, 0x04},
+   	{0x143a, 0x0b},
+   	{0x142b, 0x88},
+   	{0x0245, 0xc9},
+   	{0x023a, 0x08},
+   	{0x02cd, 0x88},
+   	{0x0612, 0x02},
+   	{0x0613, 0xc7},
+   	{0x0243, 0x03},
+   	{0x021b, 0x09},
+   	{0x0089, 0x03},
+   	{0x0040, 0xa3},
+   	{0x0075, 0x64},
+   	{0x0004, 0x0f},
+   	{0x0002, 0xa9},
+   	{0x0053, 0x0a},
+   	{0x0205, 0x0c},
+   	{0x0202, 0x06},
+   	{0x0203, 0x27},
+   	{0x0614, 0x00},
+   	{0x0615, 0x00},
+   	{0x0181, 0x0c},
+   	{0x0182, 0x05},
+   	{0x0185, 0x01},
+   	{0x0180, 0x46},
+   	{0x0100, 0x08},
+   	{0x0106, 0x38},
+   	{0x010d, 0x80},
+   	{0x010e, 0x0c},
+   	{0x0113, 0x02},
+   	{0x0114, 0x01},
+   	{0x0115, 0x10},
+   	{0x0100, 0x09},
+
+	{GC4023_REG_END, 0x00},	/* END MARKER */
+};
+
+static struct regval_list gc4023_init_regs_2560_1440_15fps_mipi_dol[] = {
+        {0x03fe, 0xf0},
    	{0x03fe, 0x00},
    	{0x03fe, 0x10},
    	{0x03fe, 0x00},
@@ -366,12 +533,7 @@ static struct regval_list gc4023_init_regs_2560_1440_25fps_mipi[] = {
 };
 
 static struct regval_list gc4023_init_regs_1920_1080_60fps_mipi[] = {
-	/*
-	 * version 0.2 mclk 27Mhz wpclk 216Mhz rpclk 172.2Mhz mipi 864Mbps/lane
-	 * cpclk 27Mhz vts = 1500 window 1920 1080
-	 */
-	/*SYSTEM*/
-   	{0x03fe, 0xf0},
+	{0x03fe, 0xf0},
    	{0x03fe, 0x00},
    	{0x03fe, 0x10},
    	{0x03fe, 0x00},
@@ -491,12 +653,7 @@ static struct regval_list gc4023_init_regs_1920_1080_60fps_mipi[] = {
 };
 
 static struct regval_list gc4023_init_regs_1280_720_60fps_mipi[] = {
-	/*
-	 * version 0.2 mclk 27Mhz wpclk 216Mhz rpclk 172.2Mhz mipi 864Mbps/lane
-	 * cpclk 27Mhz vts = 1500 window 1280 720
-	 */
-	/*SYSTEM*/
-   	{0x03fe, 0xf0},
+	{0x03fe, 0xf0},
    	{0x03fe, 0x00},
    	{0x03fe, 0x10},
    	{0x03fe, 0x00},
@@ -615,8 +772,10 @@ static struct regval_list gc4023_init_regs_1280_720_60fps_mipi[] = {
 	{GC4023_REG_END, 0x00},	/* END MARKER */
 };
 
+/*
+ * the order of the jxf23_win_sizes is [full_resolution, preview_resolution].
+ */
 static struct tx_isp_sensor_win_setting gc4023_win_sizes[] = {
-	/* [0] 2560*1440 @max 30fps*/
 	{
 		.width		= 2560,
 		.height		= 1440,
@@ -624,6 +783,15 @@ static struct tx_isp_sensor_win_setting gc4023_win_sizes[] = {
 		.mbus_code	= V4L2_MBUS_FMT_SRGGB10_1X10,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
 		.regs 		= gc4023_init_regs_2560_1440_25fps_mipi,
+	},
+#ifdef __WDR__
+	{
+		.width		= 2560,
+		.height		= 1440,
+		.fps		= 15 << 16 | 1,
+		.mbus_code	= V4L2_MBUS_FMT_SGRBG10_1X10,
+		.colorspace	= V4L2_COLORSPACE_SRGB,
+		.regs 		= gc4653_init_regs_2560_1440_15fps_mipi_dol,
 	},
 #endif
 	{
@@ -766,36 +934,46 @@ static int gc4023_detect(struct tx_isp_subdev *sd, unsigned int *ident)
 	return 0;
 }
 
+static int it_last = -1;
+static int ag_last = -1;
 #if 0
 static int gc4023_set_expo(struct tx_isp_subdev *sd, int value)
 {
 	int ret = 0;
-	struct again_lut *val_lut = gc4023_again_lut;
+        int expo = (value & 0xffff);
+	int again = (value & 0xffff0000) >> 16;
 
 	/* printk("it is %d, again is %d\n",expo,again); */
 	/*expo*/
-	ret = gc4023_write(sd, 0x0203, value & 0xff);
-	ret += gc4023_write(sd, 0x0202, value >> 8);
-	if (ret < 0) {
-		ISP_ERROR("gc4023_write error  %d\n" ,__LINE__ );
-		return ret;
+	if(it_last != expo){
+		ret = gc4023_write(sd, 0x0203, value & 0xff);
+		ret += gc4023_write(sd, 0x0202, value >> 8);
+		if (ret < 0) {
+			ISP_ERROR("gc4023_write error  %d\n" ,__LINE__ );
+			return ret;
+		}
 	}
 
 	/*gain*/
-
-	ret = gc4023_write(sd, 0x0614, val_lut[value].reg614);
-	ret = gc4023_write(sd, 0x0615, val_lut[value].reg615);
-
-	ret = gc4023_write(sd, 0x0218, val_lut[value].reg218);
-	ret = gc4023_write(sd, 0x1467, val_lut[value].reg1467);
-	ret = gc4023_write(sd, 0x1468, val_lut[value].reg1468);
-	ret = gc4023_write(sd, 0x00b8, val_lut[value].regb8);
-	ret = gc4023_write(sd, 0x00b9, val_lut[value].regb9);
-
-	if (ret < 0) {
-		ISP_ERROR("gc4023_write error  %d" ,__LINE__ );
-		return ret;
+	if(ag_last != again){
+		struct again_lut *val_lut = gc4023_again_lut;
+		ret = gc4023_write(sd, 0x0614, val_lut[value].reg614);
+		ret = gc4023_write(sd, 0x0615, val_lut[value].reg615);
+		ret = gc4023_write(sd, 0x0218, val_lut[value].reg218);
+		ret = gc4023_write(sd, 0x1467, val_lut[value].reg1467);
+		ret = gc4023_write(sd, 0x1468, val_lut[value].reg1468);
+		ret = gc4023_write(sd, 0x00b8, val_lut[value].regb8);
+		ret = gc4023_write(sd, 0x00b9, val_lut[value].regb9);
+		if (ret < 0) {
+			ISP_ERROR("gc4023_write error  %d\n" ,__LINE__ );
+			return ret;
+		}
 	}
+	
+	it_last = expo;
+	ag_last = again;
+	if (ret < 0)
+		return ret;
 
 	return 0;
 }
@@ -1025,7 +1203,7 @@ static int gc4023_g_chip_ident(struct tx_isp_subdev *sd,
 	return 0;
 }
 
-#if 0
+#ifdef __WDR__
 static int gc4023_set_integration_time_short(struct tx_isp_subdev *sd, int value)
 {
 	int ret = 0;
@@ -1038,6 +1216,108 @@ static int gc4023_set_integration_time_short(struct tx_isp_subdev *sd, int value
 	}
 
 	return 0;
+}
+static int gc4023_set_wdr(struct tx_isp_subdev *sd, int wdr_en)
+{
+	int ret = 0;
+
+	ret += gc4023_write_array(sd, wsize->regs);
+	ret += gc4023_write_array(sd, gc4023_stream_on);
+	return 0;
+}
+
+static int gc4023_set_wdr_stop(struct tx_isp_subdev *sd, int wdr_en)
+{
+	struct tx_isp_sensor *sensor = tx_isp_get_subdev_hostdata(sd);
+	int ret = 0;
+
+	if(wdr_en == 1){
+		wsize = &gc4023_win_sizes[1];
+		sensor_max_fps = TX_SENSOR_MAX_FPS_15;
+		data_type = TX_SENSOR_DATA_TYPE_WDR_DOL;
+		memcpy(&gc4023_attr.mipi, &gc4023_mipi_dol, sizeof(gc4023_mipi_dol));
+		gc4023_attr.data_type = data_type;
+		gc4023_attr.wdr_cache = wdr_bufsize;
+		gc4023_attr.one_line_expr_in_us = 27;
+		gc4023_attr.total_width = 2666;
+		gc4023_attr.total_height = 1800;
+		gc4023_attr.max_integration_time_native = 1800 - 310 - 4;
+		gc4023_attr.integration_time_limit = 1800 - 310 - 4;
+		gc4023_attr.max_integration_time = 1800 - 310 - 4;
+		gc4023_attr.max_integration_time_short = 310;
+	}
+	else if (wdr_en == 0){
+        data_type = TX_SENSOR_DATA_TYPE_LINEAR;
+        switch(sensor_resolution)
+        {
+            case TX_SENSOR_RES_400:
+                wsize = &gc4023_win_sizes[0];
+                sensor_max_fps = TX_SENSOR_MAX_FPS_30;
+                gc4023_mipi_linear.image_twidth = 2560;
+                gc4023_mipi_linear.image_theight = 1440;
+                memcpy(&gc4023_attr.mipi, &gc4023_mipi_linear, sizeof(gc4023_mipi_linear));
+                gc4023_attr.data_type = data_type;
+                gc4023_attr.one_line_expr_in_us = 30;
+                gc4023_attr.total_width = 3000;
+                gc4023_attr.total_height = 1600;
+                gc4023_attr.max_integration_time_native = 1600 - 4;
+                gc4023_attr.integration_time_limit = 1600 - 4;
+                gc4023_attr.max_integration_time = 1600 - 4;
+                gc4023_attr.max_integration_time_short = 4;
+                break;
+            case TX_SENSOR_RES_300:
+                wsize = &gc4023_win_sizes[2];
+                sensor_max_fps = TX_SENSOR_MAX_FPS_60;
+                gc4023_mipi_linear.image_twidth = 1920;
+                gc4023_mipi_linear.image_theight = 1080;
+                memcpy(&gc4023_attr.mipi, &gc4023_mipi_linear, sizeof(gc4023_mipi_linear));
+                gc4023_attr.data_type = data_type;
+                gc4023_attr.one_line_expr_in_us = 30;
+                gc4023_attr.total_width = 0x4e2 * 2;
+                gc4023_attr.total_height = 0x4b0;
+                gc4023_attr.max_integration_time_native = 0x4b0 - 4;
+                gc4023_attr.integration_time_limit = 0x4b0 - 4;
+                gc4023_attr.max_integration_time = 0x4b0 - 4;
+                gc4023_attr.max_integration_time_short = 4;
+                break;
+            case TX_SENSOR_RES_100:
+                wsize = &gc4023_win_sizes[3];
+                sensor_max_fps = TX_SENSOR_MAX_FPS_60;
+                gc4023_attr.data_type = data_type;
+                gc4023_mipi_linear.image_twidth = 1280;
+                gc4023_mipi_linear.image_theight = 720;
+                memcpy(&gc4023_attr.mipi, &gc4023_mipi_linear, sizeof(gc4023_mipi_linear));
+                gc4023_attr.one_line_expr_in_us = 30;
+                gc4023_attr.total_width = 0x5dd * 2;
+                gc4023_attr.total_height = 0x640;
+                gc4023_attr.max_integration_time_native = 0x640 - 4;
+                gc4023_attr.integration_time_limit = 0x640 - 4;
+                gc4023_attr.max_integration_time = 0x640 - 4;
+                gc4023_attr.max_integration_time_short = 4;
+                break;
+            default:
+                break;
+        }
+	}
+	else
+	{
+		ISP_ERROR("Can not support this data type!!!");
+		return -1;
+	}
+
+	sensor->video.vi_max_width = wsize->width;
+	sensor->video.vi_max_height = wsize->height;
+	sensor->video.mbus.width = wsize->width;
+	sensor->video.mbus.height = wsize->height;
+	sensor->video.mbus.code = wsize->mbus_code;
+	sensor->video.mbus.field = V4L2_FIELD_NONE;
+	sensor->video.mbus.colorspace = wsize->colorspace;
+	sensor->video.fps = wsize->fps;
+	sensor->video.attr = &gc4023_attr;
+
+	ret = tx_isp_call_subdev_notify(sd, TX_ISP_EVENT_SYNC_SENSOR_ATTR, &sensor->video);
+
+	return ret;
 }
 #endif
 
@@ -1090,6 +1370,20 @@ static int gc4023_sensor_ops_ioctl(struct tx_isp_subdev *sd, unsigned int cmd, v
 			if(arg)
 				ret = gc4023_set_vflip(sd, *(int*)arg);
 			break;
+#ifdef __WDR__
+		case TX_ISP_EVENT_SENSOR_INT_TIME_SHORT:
+			if(arg)
+				ret = gc4023_set_integration_time_short(sd, *(int*)arg);
+			break;
+		case TX_ISP_EVENT_SENSOR_WDR:
+			if(arg)
+				ret = gc4023_set_wdr(sd, *(int*)arg);
+			break;
+		case TX_ISP_EVENT_SENSOR_WDR_STOP:
+			if(arg)
+				ret = gc4023_set_wdr_stop(sd, *(int*)arg);
+			break;
+#endif
 		default:
 			break;
 	}
