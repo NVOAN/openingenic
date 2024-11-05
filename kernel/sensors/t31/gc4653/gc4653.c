@@ -730,7 +730,7 @@ static struct regval_list sensor_init_regs_1280_720_120fps_mipi[] = {
 	{0x03fe, 0x10},
 	{0x03fe, 0x00},
 	{0x0100, 0x09},
-	{SENSOR_REG_END, 0x00},
+	{GC4653_REG_END, 0x00},	/* END MARKER */
 };
 
 static struct regval_list gc4653_init_regs_1920_1080_60fps_mipi[] = {
